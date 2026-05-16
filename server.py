@@ -2,6 +2,10 @@
 """AutoSpin — Railway cloud bot + relay server."""
 import os, threading, time, json, uuid, io, base64
 from http.server import HTTPServer, BaseHTTPRequestHandler
+from socketserver import ThreadingMixIn
+
+class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
+    daemon_threads = True
 from urllib.parse import urlparse, parse_qs
 import telebot
 import telebot.types as tbt
@@ -75,11 +79,23 @@ class RelayHandler(BaseHTTPRequestHandler):
 
         if parsed.path == "/pending":
             name = qs.get("name", [""])[0]
+            if not name:
+                self._ok(None)
+                return
+            newly_registered = False
             with _lock:
-                if name in _remote_reg:
+                if name not in _remote_reg:
+                    _remote_reg[name] = {"ip": self.client_address[0], "last_seen": time.time()}
+                    newly_registered = True
+                else:
                     _remote_reg[name]["last_seen"] = time.time()
                 q = _relay_cmds.get(name)
                 item = q.pop(0) if q else None
+            if newly_registered:
+                try:
+                    telebot.TeleBot(BOT_TOKEN).send_message(
+                        int(RC_OWNER), f"✅ {name} подключился!")
+                except: pass
             self._ok(item)
 
         elif parsed.path == "/ping":
@@ -109,7 +125,7 @@ class RelayHandler(BaseHTTPRequestHandler):
     def log_message(self, *a): pass
 
 def start_relay():
-    srv = HTTPServer(("0.0.0.0", PORT), RelayHandler)
+    srv = ThreadedHTTPServer(("0.0.0.0", PORT), RelayHandler)
     t = threading.Thread(target=srv.serve_forever, daemon=True)
     t.start()
     print(f"[relay] listening on :{PORT}", flush=True)
