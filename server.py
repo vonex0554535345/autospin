@@ -362,9 +362,17 @@ def run_bot():
             elif d == "m_power":    edit(f"⚡ Питание [{pc}]:", kb_power())
 
             elif d == "screen":
-                rm(); send_result(cid, _forward(pc, "screen"), kb_ref("screen"))
+                rm()
+                bot.send_message(cid, "⏳ Делаю скриншот...")
+                def _screen(pc=pc, cid=cid):
+                    send_result(cid, _forward(pc, "screen"), kb_ref("screen"))
+                threading.Thread(target=_screen, daemon=True).start()
             elif d == "photo":
-                rm(); send_result(cid, _forward(pc, "photo"), kb_ref("photo"))
+                rm()
+                bot.send_message(cid, "⏳ Снимаю камеру...")
+                def _photo(pc=pc, cid=cid):
+                    send_result(cid, _forward(pc, "photo"), kb_ref("photo"))
+                threading.Thread(target=_photo, daemon=True).start()
 
             elif d == "sysinfo":
                 r = _forward(pc, "sysinfo")
